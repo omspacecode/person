@@ -1,21 +1,21 @@
 <?php
  
-namespace App\Http\Controllers; 
+namespace App\Http\Controllers;  
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller; 
 use App\Post;      
-use Session;    
-
+use App\Category;  
+use App\Tag;   
+use Session;          
 
 class PostController extends Controller
 {
 
     public function __construct(){
-        $this->middleware('auth');   
+        $this->middleware('auth');        
 
     }
-
 
     /**
      * Display a listing of the resource.
@@ -26,8 +26,8 @@ class PostController extends Controller
     {
         $posts = Post::orderBy('id', 'desc')->paginate(10);     
 
-        return view('posts.index')->withPosts($posts); 
-    }
+        return view('posts.index')->withPosts($posts);   
+    } 
 
     /**
      * Show the form for creating a new resource.
@@ -36,9 +36,11 @@ class PostController extends Controller
      */
     public function create()
     {
-        //
-        return view('posts.create'); 
-    }
+        $categories = Category::all();    
+        $tags = Tag::all();    
+
+        return view('posts.create')->withCategories($categories)->withTags($tags);    
+    } 
 
     /**
      * Store a newly created resource in storage.
@@ -49,25 +51,30 @@ class PostController extends Controller
     public function store(Request $request)
     {
 
-        // validate data  
+        // validate data   
         $this->validate($request, array(
             'title' => 'required|max:255' , 
-            'slug' => 'required|alpha_dash|min:5|max:255|unique:posts,slug',   
+            'slug' => 'required|alpha_dash|min:5|max:255|unique:posts,slug', 
+            'category_id' => 'required|numeric', 
             'body' => 'required'
-        )); 
+        ));     
 
         // store in database  
 
         $post =  new Post; 
         $post->title = $request->title;    
         $post->slug = $request->slug; 
-        $post->body = $request->body;     
+        $post->category_id = $request->category_id;   
+        $post->body = $request->body;  
+
         $post->save();    
+
+        $post->tags()->sync($request->tags, false);              
 
         Session::flash('success','The blog post was successfully posted.');   
 
         // redirect to another page  
-        return redirect()->route('posts.show', $post->id);        
+        return redirect()->route('posts.show', $post->id);          
     } 
 
     /**
@@ -78,12 +85,10 @@ class PostController extends Controller
      */
     public function show($id) 
     {
-        //
+        
+        $post = Post::find($id);    
 
-        $post = Post::find($id); 
-
-
-        return view('posts.show')->withPost($post);      
+        return view('posts.show')->withPost($post);       
     }
 
     /**
@@ -92,10 +97,24 @@ class PostController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function edit($id)
+    public function edit($id) 
     {
-        $post = Post::find($id);
-        return view('posts.edit')->withPost($post);   
+        $post = Post::find($id);   
+        $categories = Category::all(); 
+        $rows = array();    
+
+        foreach($categories as $category){
+            $rows[$category->id] = $category->name;              
+        }
+
+        $tags = Tag::all();        
+        $tags2 = array();    
+
+        foreach($tags as $tag){
+            $tags2[$tag->id] = $tag->name;                      
+        }
+
+        return view('posts.edit')->withPost($post)->withCategories($rows)->withTags($tags2);          
     } 
 
     /**
@@ -107,39 +126,45 @@ class PostController extends Controller
      */
     public function update(Request $request, $id)   
     {
-        $post = Post::find($id);   
+        $post = Post::find($id);      
 
         if ($request->input('slug') == $post->slug){
                 $this->validate($request, array(
                 'title' => 'required|max:255' ,
+                'category_id' => 'required|integer',                
                 'body' => 'required'
-            ));  
+            ));   
         } else {
 
             //Validate
             $this->validate($request, array(
                 'title' => 'required|max:255' ,
                 'slug' => 'required|alpha_dash|min:5|max:255|unique:posts,slug', 
+                'category_id' => 'required|integer', 
                 'body' => 'required'
             )); 
         }   
 
 
         //Update to database 
-        $post = Post::find($id);    
+        $post = Post::find($id);        
 
-        $post->title = $request->input('title');  
+        $post->title = $request->input('title');    
         $post->slug = $request->input('slug'); 
-        $post->body = $request->input('body');      
+        $post->category_id = $request->input('category_id');       
+        $post->body = $request->input('body');        
 
-        $post->save(); 
+        $post->save();    
+
+        $post->tags()->sync($request->tags);                      
+
  
-        //Display message
+        //Display message 
         Session::flash('success','The blog post was successfully updated.');       
 
         //redirect data to posts.show
-        return redirect()->route('posts.show', $post->id);          
-    }    
+        return redirect()->route('posts.show', $post->id);                         
+    }      
 
     /**
      * Remove the specified resource from storage.
@@ -147,13 +172,16 @@ class PostController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id) 
+    public function destroy($id)   
     {
-        $post = Post::find($id);
+        $post = Post::find($id);  
+        $post->tags()->detach(); 
+
         $post->delete(); 
+
 
         Session::flash('success','The blog post was successfully deleted.');       
 
-        return redirect()->route('posts.index');  
+        return redirect()->route('posts.index');   
     }
 }
