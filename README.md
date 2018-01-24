@@ -8,9 +8,4 @@ $ php artisan migrate
 $ php artisan serve 
 ```
 Check the application on your local server
-
-```Thanks
-Om Prakash Raj Purohit
-9611989091
-om1719@gmail.com 
-```
+Thank You!
