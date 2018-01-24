@@ -7,5 +7,4 @@ Go to project directory and RUN
 $ php artisan migrate
 $ php artisan serve 
 ```
-Check the application on your local server
-Thank You!
+Check the application on your localhost
